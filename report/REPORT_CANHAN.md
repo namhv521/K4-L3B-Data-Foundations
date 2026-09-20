@@ -1,8 +1,9 @@
 # Báo Cáo Cá Nhân — Lab 7: Embedding & Vector Store
 
-**Họ tên:** [Tên sinh viên]
-**Nhóm:** [Tên nhóm]
-**Ngày:** [Ngày nộp]
+**Họ tên:** Hoàng Văn Nam  
+**Mã học viên:** 2A202602853  
+**Nhóm:** Pennity  
+**Ngày:** 2026-09-20
 
 > **Nộp 1 bản / sinh viên.** Phần nhóm (lựa chọn tài liệu, thiết kế chiến lược, bộ câu hỏi đánh giá, demo) nộp chung 1 bản trong `REPORT_NHOM.md`. Chi tiết thang điểm: `docs/SCORING.md`.
 
@@ -18,9 +19,9 @@
 > Độ tương tự cosine cao nghĩa là hai vector embedding có hướng gần giống nhau, cho thấy hai đoạn văn bản có nội dung hoặc ý nghĩa ngữ nghĩa tương đồng.
 
 **Ví dụ có độ tương tự CAO:**
-- Câu A:Điện thoại này được bảo hành trong 12 tháng.
-- Câu B:Sản phẩm điện thoại có thời hạn bảo hành là 1 năm.
-- Tại sao tương đồng:: Hai câu sử dụng từ ngữ khác nhau nhưng đều diễn đạt cùng ý nghĩa: điện thoại được bảo hành 12 tháng.
+- Câu A: Điện thoại này được bảo hành trong 12 tháng.
+- Câu B: Sản phẩm điện thoại có thời hạn bảo hành là 1 năm.
+- Tại sao tương đồng: Hai câu sử dụng từ ngữ khác nhau nhưng đều diễn đạt cùng ý nghĩa: điện thoại được bảo hành 12 tháng.
 
 **Ví dụ có độ tương tự THẤP:**
 - Câu A: Điện thoại này được bảo hành trong 12 tháng.
@@ -33,12 +34,11 @@
 ### Bài toán tính toán Chunking (Bài tập 1.2)
 
 **Tài liệu 10,000 ký tự, chunk_size=500, overlap=50. Bao nhiêu chunks?**
-> số steps = chunk_size - overlap = 450
-> số chunks = (10000-500)/450 + 1 ~ 23
-> 23
+> Bước trượt: `step = chunk_size - overlap = 500 - 50 = 450`.  
+> Số chunk: `ceil((10000 - 500) / 450) + 1 = 23`.
+
 **Nếu độ chồng chéo (overlap) tăng lên 100, số lượng chunk thay đổi thế nào? Tại sao muốn độ chồng chéo nhiều hơn?**
-> so chunks = (10000-500)/(500-100) + 1 ~ 25
-> Số lượng tăng từ 23 lên 25 chunks. Overlap lớn hơn giúp giữ lại nhiều ngữ cảnh ở ranh giới giữa các chunk, giảm nguy cơ một câu hoặc ý quan trọng bị chia cắt; đổi lại sẽ làm tăng lượng dữ liệu cần embedding, lưu trữ và tìm kiếm.
+> Khi đó `step = 400` và số chunk là `ceil((10000 - 500) / 400) + 1 = 25`. Số lượng tăng từ 23 lên 25. Overlap lớn hơn giúp giữ ngữ cảnh ở ranh giới giữa các chunk, giảm nguy cơ một câu hoặc ý quan trọng bị chia cắt; đổi lại làm tăng dữ liệu cần embedding, lưu trữ và tìm kiếm.
 
 ---
 
@@ -49,7 +49,7 @@ Giải thích cách tiếp cận của bạn khi lập trình (implement) các p
 ### Các hàm chia nhỏ (Chunking Functions)
 
 **`SentenceChunker.chunk`** — hướng tiếp cận:
->   Sử dụng biểu thức chính quy `re.split(r"(?<=[.!?])(?:\\s+|\\n+)", text)` với positive lookbehind để nhận diện ranh giới câu mà không làm mất các ký tự dấu câu (`.`, `!`, `?`). Sau đó, loại bỏ các chuỗi rỗng và gom nhóm các câu lại theo kích thước `max_sentences_per_chunk` bằng hàm `join`. Xử lý trường hợp văn bản không chứa dấu kết thúc câu hoặc văn bản rỗng bằng cách trả về danh sách an toàn.
+> Sử dụng biểu thức chính quy `re.split(r"(?<=[.!?])\\s+", text.strip())` với positive lookbehind để nhận diện ranh giới câu mà không làm mất các dấu kết thúc (`.`, `!`, `?`). Sau đó loại chuỗi rỗng và gom tuần tự tối đa `max_sentences_per_chunk` câu bằng `join`. Văn bản rỗng trả về danh sách rỗng; văn bản không có dấu kết thúc vẫn được giữ thành một câu.
 
 **`RecursiveChunker.chunk` / `_split`** — hướng tiếp cận:
 > Thuật toán tiếp cận theo hướng phân cấp giảm dần các ký tự phân tách: `["\\n\\n", "\\n", ". ", " ", ""]`. Base case xảy ra khi độ dài đoạn văn nhỏ hơn hoặc bằng `chunk_size`, hoặc khi danh sách separators rỗng (khi đó cắt cứng theo ký tự). Thuật toán có bước quan trọng là gom cụm (merge): ghép các đoạn ngắn liên tiếp lại với nhau bằng separator cho đến khi đạt ngưỡng `chunk_size`, tránh tạo ra các chunk quá vụn.
@@ -73,7 +73,7 @@ Giải thích cách tiếp cận của bạn khi lập trình (implement) các p
 > Dùng `re.finditer(r"^(#{1,6}\\s+.+)$", re.MULTILINE)` để tìm từng heading Markdown từ `#` đến `######` và lấy body của section theo vị trí heading kế tiếp. Dùng `finditer()` thay vì `split()` để hai heading liên tiếp vẫn tạo hai section độc lập. Section ngắn được giữ nguyên; section dài được giao cho `RecursiveChunker`, đồng thời lặp lại prefix heading trong mọi sub-chunk và trừ độ dài prefix khỏi `chunk_size` để không vượt giới hạn ký tự.
 
 **`bench.py`** — hướng tiếp cận:
-> Benchmark có một cấu hình `CHUNKER` duy nhất để thay chiến lược công bằng. Khi ingest, mã tách YAML frontmatter khỏi body trước khi chunk, đưa frontmatter vào metadata của mọi chunk và tạo ID ổn định dạng `f"{path.stem}#{index}"`; nhờ đó câu 4 có thể pre-filter `{"audience": "both"}`. Với OpenAI, `CachedEmbedder` lưu vector theo SHA-256 của nội dung để chạy lại không embed/bị tính phí lần nữa. Hàm `configure_utf8_output()` gọi `reconfigure(encoding="utf-8", errors="replace")` cho stdout/stderr, tránh lỗi CP1252 khi in tiếng Việt trên Windows.
+> Benchmark khóa một cấu hình chung `CHUNKER = RecursiveChunker(chunk_size=500)` để so sánh công bằng. Khi ingest, mã tách YAML frontmatter khỏi body trước khi chunk, đưa frontmatter vào metadata của mọi chunk và tạo ID ổn định dạng `f"{path.stem}#{index}"`; nhờ đó câu 4 có thể pre-filter `{"audience": "both"}`. Với OpenAI, `CachedEmbedder` lưu vector theo SHA-256 của nội dung để chạy lại không embed/bị tính phí lần nữa; script đánh giá Gemini dùng cache nội dung có checkpoint theo batch. Hàm `configure_utf8_output()` gọi `reconfigure(encoding="utf-8", errors="replace")` cho stdout/stderr, tránh lỗi CP1252 khi in tiếng Việt trên Windows.
 
 ---
 
@@ -84,25 +84,14 @@ Vượt qua bộ kiểm thử là điều kiện tính điểm phần này.
 ### Kết Quả Kiểm Thử (Test Results)
 
 ```text
-$ python -m pytest tests -v
-collected 54 items
-
-tests/test_heading_bench.py::TestHeadingChunker::test_splits_at_each_markdown_heading PASSED
-tests/test_heading_bench.py::TestHeadingChunker::test_consecutive_headings_remain_separate_sections PASSED
-tests/test_heading_bench.py::TestHeadingChunker::test_long_section_repeats_its_heading_on_every_recursive_subchunk PASSED
-tests/test_heading_bench.py::TestCachedEmbedder::test_reuses_persisted_vector_for_the_same_content_hash PASSED
-tests/test_heading_bench.py::TestBenchIngestion::test_chunk_documents_use_source_stem_as_doc_id_and_propagate_metadata PASSED
-tests/test_heading_bench.py::TestBenchIngestion::test_filtered_benchmark_query_receives_no_buyer_chunks PASSED
-tests/test_benchmark_warranty.py::TestWarrantyBenchmark::test_configure_utf8_output_reconfigures_console_stream PASSED
-tests/test_solution.py::TestEmbeddingStoreSearchWithFilter::test_filter_by_department PASSED
-tests/test_solution.py::TestKnowledgeBaseAgent::test_answer_non_empty PASSED
-...
-============================= 54 passed in 0.10s ==============================
+$ python -m pytest -q
+.......................................................                  [100%]
+55 passed in 0.14s
 ```
 
-**Số lượng bài test vượt qua (pass):** 54 / 54
+**Số lượng bài test vượt qua (pass):** 55 / 55.
 
-**Phần đã bổ sung và kiểm thử:** `HeadingChunker` tách heading, xử lý heading liên tiếp và lặp heading khi recursive split; benchmark tách frontmatter, lan truyền metadata/`doc_id`, áp dụng filter câu 4, cache embedding OpenAI và cấu hình UTF-8 cho console Windows. Toàn bộ test gốc và test bổ sung đều pass.
+**Phần đã bổ sung và kiểm thử:** `HeadingChunker` tách heading, xử lý heading liên tiếp và lặp heading khi recursive split; benchmark tách frontmatter, lan truyền metadata/`doc_id`, áp dụng filter câu 4, cache embedding OpenAI và cấu hình UTF-8 cho console Windows. Test hồi quy mới xác nhận cấu hình benchmark mặc định là `RecursiveChunker` với giới hạn 500 ký tự. Toàn bộ test gốc và test bổ sung đều pass.
 
 ---
 
